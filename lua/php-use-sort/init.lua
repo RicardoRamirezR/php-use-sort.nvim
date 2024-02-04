@@ -12,18 +12,27 @@ end
 ---@class PhpUseSort
 local M = {}
 
-local function sort_use_statements(use_statements)
+local function sort_use_statements(use_statements, sort_order)
   table.sort(use_statements, function(a, b)
     local len_a, len_b = #a.statement, #b.statement
+
+    if sort_order == "desc" then
+      if len_a == len_b then
+        return a.statement > b.statement
+      end
+
+      return len_a > len_b
+    end
+
     if len_a == len_b then
       return a.statement < b.statement
-    else
-      return len_a < len_b
     end
+
+    return len_a < len_b
   end)
 end
 
-function M.main()
+function M.main(sort_order)
   local parser = parsers.get_parser()
   local tree = parser:parse()[1]
 
@@ -56,7 +65,7 @@ function M.main()
     end
   end
 
-  sort_use_statements(use_statements)
+  sort_use_statements(use_statements, sort_order)
 
   local lines = {}
   for _, use_statement in pairs(use_statements) do
@@ -70,9 +79,15 @@ function M.main()
 end
 
 function M.setup()
-  vim.api.nvim_create_user_command("PhpUseSort", function(args)
-    M.main()
-  end, { desc = "Sort PHP use lines by length" })
+  vim.api.nvim_create_user_command("PhpUseSort", function(opts)
+    M.main(opts.args)
+  end, {
+    nargs = 1,
+    complete = function(_, _, _)
+      return { "asc", "desc" }
+    end,
+    desc = "Sort PHP use lines by length. Accepts sorting options.",
+  })
 end
 
 return M

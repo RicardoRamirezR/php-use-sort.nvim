@@ -5,13 +5,15 @@ Neovim plugin to conveniently sort PHP "use" statements within your codebase. Th
 ## Features
 
 - Sorts PHP "use" statements in your Neovim environment.
+- Supports sorting alphabetically and by statement length.
+- Allows sorting in both ascending and descending order.
 
 ## Usage
 
 Execute the following command to sort your PHP "use" statements:
 
 ```vim
-:PhpUseSort
+:PhpUseSort [asc|desc]
 ```
 
 ## ⚡️ Requirements
