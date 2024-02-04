@@ -32,23 +32,11 @@ local function sort_use_statements(use_statements, sort_order)
   end)
 end
 
-function M.main(sort_order)
-  local parser = parsers.get_parser()
-  local tree = parser:parse()[1]
+local function parse_tree(parser)
+  return parser:parse()[1]
+end
 
-  if not parser or not tree then
-    vim.notify("Failed to parse the tree.", vim.lsp.log_levels.ERROR)
-    return
-  end
-
-  local root = tree:root()
-  local lang = parser:lang()
-
-  if lang ~= "php" then
-    print("Info: works only on PHP.")
-    return
-  end
-
+local function extract_use_statements(root, lang)
   local qs = [[ (namespace_use_declaration) @use ]]
   local query = ts.query.parse(lang, qs)
 
@@ -65,8 +53,10 @@ function M.main(sort_order)
     end
   end
 
-  sort_use_statements(use_statements, sort_order)
+  return use_statements, range
+end
 
+local function update_buffer(range, use_statements)
   local lines = {}
   for _, use_statement in pairs(use_statements) do
     table.insert(lines, use_statement.statement)
@@ -78,16 +68,63 @@ function M.main(sort_order)
   end
 end
 
-function M.setup()
+local function setup_autocmd()
+  local Config = require("php-use-sort.config")
+  if not Config.options.autocmd then
+    return
+  end
+  local group = vim.api.nvim_create_augroup("PhpUseSort", { clear = true })
+
+  vim.api.nvim_create_autocmd("BufWritePre", {
+    pattern = { "*.php" },
+    command = "PhpUseSort",
+    group = group,
+  })
+end
+
+local function setup_command()
   vim.api.nvim_create_user_command("PhpUseSort", function(opts)
     M.main(opts.args)
   end, {
-    nargs = 1,
+    nargs = "?",
     complete = function(_, _, _)
       return { "asc", "desc" }
     end,
     desc = "Sort PHP use lines by length. Accepts sorting options.",
   })
+end
+
+function M.main(sort_order)
+  local Config = require("php-use-sort.config")
+  local parser = parsers.get_parser()
+  local tree = parse_tree(parser)
+
+  if not parser or not tree then
+    vim.notify("Failed to parse the tree.", vim.lsp.log_levels.ERROR)
+    return
+  end
+
+  local root = tree:root()
+  local lang = parser:lang()
+
+  if lang ~= "php" then
+    print("Info: works only on PHP.")
+    return
+  end
+
+  sort_order = sort_order ~= "" and sort_order or Config.options.order
+
+  local use_statements, range = extract_use_statements(root, lang)
+
+  sort_use_statements(use_statements, sort_order)
+
+  update_buffer(range, use_statements)
+end
+
+function M.setup(options)
+  require("php-use-sort.config").setup(options.opts)
+  setup_command()
+  setup_autocmd()
 end
 
 return M
