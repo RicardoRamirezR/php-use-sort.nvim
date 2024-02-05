@@ -1,5 +1,9 @@
+---@class PhpUseSort
+local M = {}
+
 local ts = vim.treesitter
 local parsers = require("nvim-treesitter.parsers")
+local vim_diagnostic = vim.diagnostic
 
 local p = function(value)
   print(vim.inspect(value))
@@ -8,9 +12,6 @@ end
 local t = function(node)
   p(ts.get_node_text(node, 0))
 end
-
----@class PhpUseSort
-local M = {}
 
 local function sort_use_statements(use_statements, sort_order)
   table.sort(use_statements, function(a, b)
@@ -32,6 +33,20 @@ local function sort_use_statements(use_statements, sort_order)
   end)
 end
 
+local function remove_declared_but_not_used(row)
+  local diag_text = "is declared but not used."
+  local diagnostics = vim_diagnostic.get(0, {
+    lnum = row,
+    severity = vim_diagnostic.severity.HINT,
+  })
+
+  if not vim.tbl_isempty(diagnostics) and string.find(diagnostics[1].message, diag_text) then
+    return true
+  end
+
+  return false
+end
+
 local function parse_tree(parser)
   return parser:parse()[1]
 end
@@ -47,20 +62,13 @@ local function extract_use_statements(root, lang, rm_unused)
   for _, matches, metadata in query:iter_matches(root, 0) do
     for _, node in pairs(matches) do
       local start_row, _, end_row, _ = node:range()
-      local statement = ts.get_node_text(node, 0)
-      local diagnostics = vim.diagnostic.get(0, { lnum = start_row, severity = vim.diagnostic.severity.HINT })
 
-      if not vim.tbl_isempty(diagnostics) then
-        if string.find(diagnostics[1].message, diag_text) then
-          goto continue
-        end
+      if not rm_unused or not remove_declared_but_not_used(start_row) then
+        local statement = ts.get_node_text(node, 0)
+        range.min = math.min(range.min, start_row + 1)
+        range.max = math.max(range.max, end_row + 1)
+        table.insert(use_statements, { statement = statement, node = node })
       end
-
-      table.insert(use_statements, { statement = statement, node = node })
-      range.min = math.min(range.min, start_row + 1)
-      range.max = math.max(range.max, end_row + 1)
-
-      ::continue::
     end
   end
 
@@ -80,8 +88,8 @@ local function update_buffer(range, use_statements)
 end
 
 local function setup_autocmd()
-  local Config = require("php-use-sort.config")
-  if not Config.options.autocmd then
+  local options = M.get_config_options()
+  if not options.autocmd then
     return
   end
   local group = vim.api.nvim_create_augroup("PhpUseSort", { clear = true })
@@ -105,8 +113,12 @@ local function setup_command()
   })
 end
 
+function M.get_config_options()
+  return require("php-use-sort.config").options
+end
+
 function M.main(sort_order)
-  local Config = require("php-use-sort.config")
+  local options = M.get_config_options()
   local parser = parsers.get_parser()
   local tree = parse_tree(parser)
 
@@ -123,9 +135,9 @@ function M.main(sort_order)
     return
   end
 
-  sort_order = sort_order ~= "" and sort_order or Config.options.order
+  sort_order = sort_order ~= "" and sort_order or options.order
 
-  local use_statements, range = extract_use_statements(root, lang, Config.options.rm_unused)
+  local use_statements, range = extract_use_statements(root, lang, options.rm_unused)
 
   sort_use_statements(use_statements, sort_order)
 
@@ -136,14 +148,6 @@ function M.setup(options)
   require("php-use-sort.config").setup(options.opts)
   setup_command()
   setup_autocmd()
-  p(vim.diagnostic.get(0, {
-    severity = {
-      vim.diagnostic.severity.ERROR,
-      vim.diagnostic.severity.WARN,
-      vim.diagnostic.severity.INFO,
-      vim.diagnostic.severity.HINT,
-    },
-  }))
 end
 
 return M
