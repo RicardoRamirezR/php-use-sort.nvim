@@ -57,9 +57,8 @@ local function extract_use_statements(root, lang, rm_unused)
 
   local use_statements = {}
   local range = { min = math.huge, max = 0 }
-  local diag_text = "is declared but not used."
 
-  for _, matches, metadata in query:iter_matches(root, 0) do
+  for _, matches, _ in query:iter_matches(root, 0) do
     for _, node in pairs(matches) do
       local start_row, _, end_row, _ = node:range()
 
@@ -97,7 +96,11 @@ local function setup_autocmd()
 
   vim.api.nvim_create_autocmd("BufWritePre", {
     pattern = { "*.php" },
-    command = "PhpUseSort",
+    callback = function()
+      if vim.bo.filetype == "php" then
+        vim.api.nvim_command("PhpUseSort")
+      end
+    end,
     group = group,
   })
 end
@@ -121,9 +124,15 @@ end
 function M.main(sort_order)
   local options = M.get_config_options()
   local parser = parsers.get_parser()
+
+  if not parser then
+    vim.notify("Failed to parse the tree.", vim.lsp.log_levels.ERROR)
+    return
+  end
+
   local tree = parse_tree(parser)
 
-  if not parser or not tree then
+  if not tree then
     vim.notify("Failed to parse the tree.", vim.lsp.log_levels.ERROR)
     return
   end
