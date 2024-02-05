@@ -63,10 +63,11 @@ local function extract_use_statements(root, lang, rm_unused)
     for _, node in pairs(matches) do
       local start_row, _, end_row, _ = node:range()
 
+      range.min = math.min(range.min, start_row + 1)
+      range.max = math.max(range.max, end_row + 1)
+
       if not rm_unused or not remove_declared_but_not_used(start_row) then
         local statement = ts.get_node_text(node, 0)
-        range.min = math.min(range.min, start_row + 1)
-        range.max = math.max(range.max, end_row + 1)
         table.insert(use_statements, { statement = statement, node = node })
       end
     end
