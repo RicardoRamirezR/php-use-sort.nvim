@@ -6,6 +6,7 @@ M.namespace = vim.api.nvim_create_namespace("PhpUseSort")
 local defaults = {
   order = "asc",
   autocmd = false,
+  rm_unused = false,
 }
 
 ---@type Options

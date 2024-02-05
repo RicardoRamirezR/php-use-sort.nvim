@@ -36,20 +36,31 @@ local function parse_tree(parser)
   return parser:parse()[1]
 end
 
-local function extract_use_statements(root, lang)
+local function extract_use_statements(root, lang, rm_unused)
   local qs = [[ (namespace_use_declaration) @use ]]
   local query = ts.query.parse(lang, qs)
 
   local use_statements = {}
   local range = { min = math.huge, max = 0 }
+  local diag_text = "is declared but not used."
 
   for _, matches, metadata in query:iter_matches(root, 0) do
     for _, node in pairs(matches) do
       local start_row, _, end_row, _ = node:range()
       local statement = ts.get_node_text(node, 0)
+      local diagnostics = vim.diagnostic.get(0, { lnum = start_row, severity = vim.diagnostic.severity.HINT })
+
+      if not vim.tbl_isempty(diagnostics) then
+        if string.find(diagnostics[1].message, diag_text) then
+          goto continue
+        end
+      end
+
       table.insert(use_statements, { statement = statement, node = node })
       range.min = math.min(range.min, start_row + 1)
       range.max = math.max(range.max, end_row + 1)
+
+      ::continue::
     end
   end
 
@@ -114,7 +125,7 @@ function M.main(sort_order)
 
   sort_order = sort_order ~= "" and sort_order or Config.options.order
 
-  local use_statements, range = extract_use_statements(root, lang)
+  local use_statements, range = extract_use_statements(root, lang, Config.options.rm_unused)
 
   sort_use_statements(use_statements, sort_order)
 
@@ -125,6 +136,14 @@ function M.setup(options)
   require("php-use-sort.config").setup(options.opts)
   setup_command()
   setup_autocmd()
+  p(vim.diagnostic.get(0, {
+    severity = {
+      vim.diagnostic.severity.ERROR,
+      vim.diagnostic.severity.WARN,
+      vim.diagnostic.severity.INFO,
+      vim.diagnostic.severity.HINT,
+    },
+  }))
 end
 
 return M

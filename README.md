@@ -7,6 +7,7 @@ Neovim plugin to conveniently sort PHP "use" statements within your codebase. Th
 - Sorts PHP "use" statements in your Neovim environment.
 - Supports sorting alphabetically and by statement length.
 - Allows sorting in both ascending and descending order.
+- Allows removing unused "use" statements.
 
 ## Usage
 
@@ -33,6 +34,7 @@ Install the plugin with your preferred package manager:
   opts = {
     order = "asc",
     autocmd = true,
+    rm_unused = true,
   },
   config = function()
     require("php-use-sort").setup()
@@ -51,6 +53,7 @@ Install the plugin with your preferred package manager:
 {
     order = "asc", ---@type "asc" | "desc"
     autocmd = false, -- create an autocmd group if true
+    rm_unused = false, -- remove lines that "is declared but not used."
 }
 ```
 
