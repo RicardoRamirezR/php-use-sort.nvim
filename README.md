@@ -36,6 +36,7 @@ Install the plugin with your preferred package manager:
   },
   ft = "php",
   opts = {
+    order_by = "length",
     order = "asc",
     autocmd = true,
     rm_unused = true,
@@ -58,6 +59,7 @@ Install the plugin with your preferred package manager:
 
 ```lua
 {
+    order_by = "length", ---@type "length" | "alphabetical"
     order = "asc", ---@type "asc" | "desc"
     autocmd = false, -- create an autocmd group if true
     rm_unused = false, -- remove lines that "is declared but not used."

@@ -1,5 +1,5 @@
 ---@class PhpUseSort
-local M = {}
+local PhpUseSort = {}
 
 local ts = vim.treesitter
 local parsers = require("nvim-treesitter.parsers")
@@ -13,7 +13,17 @@ local t = function(node)
   p(ts.get_node_text(node, 0))
 end
 
-local function sort_use_statements(use_statements, sort_order)
+local function sort_use_statements(use_statements, order_by, sort_order)
+  if order_by == "alphabetical" then
+    table.sort(use_statements, function(a, b)
+      if sort_order == "desc" then
+        return a.statement > b.statement
+      end
+      return a.statement < b.statement
+    end)
+    return
+  end
+
   table.sort(use_statements, function(a, b)
     local len_a, len_b = #a.statement, #b.statement
 
@@ -88,7 +98,7 @@ local function update_buffer(range, use_statements)
 end
 
 local function setup_autocmd()
-  local options = M.get_config_options()
+  local options = PhpUseSort.get_config_options()
   if not options.autocmd then
     return
   end
@@ -101,23 +111,52 @@ local function setup_autocmd()
   })
 end
 
+local function get_completions(context)
+  local completions = {}
+  local words = vim.split(context, "%s")
+  local current_word = words[#words] or ""
+
+  if #words == 2 and current_word == "" then
+    completions = { "length", "alphabetical" }
+  elseif #words == 3 and current_word == "" then
+    completions = { "asc", "desc" }
+  end
+
+  return completions
+end
+
 local function setup_command()
   vim.api.nvim_create_user_command("PhpUseSort", function(opts)
-    M.main(opts.args)
+    local args = vim.split(opts.args, "%s")
+    local order_by = args[1] or ""
+    local sort_order = args[2] or ""
+
+    PhpUseSort.main(order_by, sort_order)
   end, {
     nargs = "?",
     complete = function(_, _, _)
-      return { "asc", "desc" }
+      local context = vim.fn.getcmdline()
+
+      if context ~= nil then
+        return get_completions(context)
+      else
+        return {}
+      end
     end,
-    desc = "Sort PHP use lines by length. Accepts sorting options.",
+    desc = "Sort PHP use lines by length or alphabetical order. Accepts sorting options.",
   })
 end
 
-function M.get_config_options()
+--     complete = "custom,ListUsers",
+-- local function ListUsers(A, L, P)
+--   return { "asc", "desc" }
+-- end
+
+function PhpUseSort.get_config_options()
   return require("php-use-sort.config").options
 end
 
-function M.main(sort_order)
+function PhpUseSort.main(order_by, sort_order)
   local parser = parsers.get_parser()
 
   if not parser then
@@ -140,21 +179,22 @@ function M.main(sort_order)
     return
   end
 
-  local options = M.get_config_options()
-
-  sort_order = sort_order ~= "" and sort_order or options.order
+  local options = PhpUseSort.get_config_options()
 
   local use_statements, range = extract_use_statements(root, lang, options.rm_unused)
 
-  sort_use_statements(use_statements, sort_order)
+  sort_order = sort_order ~= "" and sort_order or options.order
+  order_by = order_by ~= "" and order_by or options.order_by
+
+  sort_use_statements(use_statements, order_by, sort_order)
 
   update_buffer(range, use_statements)
 end
 
-function M.setup(options)
+function PhpUseSort.setup(options)
   require("php-use-sort.config").setup(options.opts)
   setup_command()
   setup_autocmd()
 end
 
-return M
+return PhpUseSort
