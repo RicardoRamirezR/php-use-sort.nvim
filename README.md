@@ -20,6 +20,7 @@ Execute the following command to sort your PHP "use" statements:
 ## ⚡️ Requirements
 
 - Neovim >= 0.5.0
+- Treesitter >= 0.9.2
 
 ## 📦 Installation
 
@@ -30,15 +31,21 @@ Install the plugin with your preferred package manager:
 ```lua
 {
   "ricardoramirezr/php-use-sort.nvim",
+  dependencies = {
+    "nvim-treesitter/nvim-treesitter",
+  },
   ft = "php",
   opts = {
     order = "asc",
     autocmd = true,
     rm_unused = true,
   },
-  config = function()
-    require("php-use-sort").setup()
-    vim.keymap.set("n", "<leader>su", ":PhpUseSort<CR>", { desc = "Sort PHP use lines by length", silent = true })
+  config = function(opts)
+    require("php-use-sort").setup(opts)
+    vim.keymap.set("n", "<leader>su", ":PhpUseSort<CR>", {
+      desc = "Sort PHP use lines by length",
+      silent = true,
+    })
   end,
 }
 ```

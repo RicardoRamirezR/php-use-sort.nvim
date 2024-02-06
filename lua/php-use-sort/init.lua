@@ -96,11 +96,7 @@ local function setup_autocmd()
 
   vim.api.nvim_create_autocmd("BufWritePre", {
     pattern = { "*.php" },
-    callback = function()
-      if vim.bo.filetype == "php" then
-        vim.api.nvim_command("PhpUseSort")
-      end
-    end,
+    command = "PhpUseSort",
     group = group,
   })
 end
@@ -122,7 +118,6 @@ function M.get_config_options()
 end
 
 function M.main(sort_order)
-  local options = M.get_config_options()
   local parser = parsers.get_parser()
 
   if not parser then
@@ -144,6 +139,8 @@ function M.main(sort_order)
     print("Info: works only on PHP.")
     return
   end
+
+  local options = M.get_config_options()
 
   sort_order = sort_order ~= "" and sort_order or options.order
 
