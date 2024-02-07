@@ -110,37 +110,32 @@ local function setup_autocmd()
     group = group,
   })
 end
-
-local function get_completions(context)
-  local completions = {}
-  local words = vim.split(context, "%s")
-  local current_word = words[#words] or ""
-
-  if #words == 2 and current_word == "" then
-    completions = { "length", "alphabetical" }
-  elseif #words == 3 and current_word == "" then
-    completions = { "asc", "desc" }
-  end
-
-  return completions
-end
-
-local function setup_command()
+function setup_command()
   vim.api.nvim_create_user_command("PhpUseSort", function(opts)
-    local args = vim.split(opts.args, "%s")
+    local args = vim.split(opts.args, "%s+")
     local order_by = args[1] or ""
     local sort_order = args[2] or ""
 
     PhpUseSort.main(order_by, sort_order)
   end, {
     nargs = "?",
-    complete = function(_, _, _)
-      local context = vim.fn.getcmdline()
+    complete = function(_, line)
+      local order_by = { "alphabetical", "length" }
+      local direction = { "asc", "desc" }
 
-      if context ~= nil then
-        return get_completions(context)
-      else
-        return {}
+      local l = vim.split(line, "%s+")
+      local n = #l - 2
+
+      if n == 0 then
+        return vim.tbl_filter(function(val)
+          return vim.startswith(val, l[2])
+        end, order_by)
+      end
+
+      if n == 1 then
+        return vim.tbl_filter(function(val)
+          return vim.startswith(val, l[3])
+        end, direction)
       end
     end,
     desc = "Sort PHP use lines by length or alphabetical order. Accepts sorting options.",
@@ -193,8 +188,8 @@ end
 
 function PhpUseSort.setup(options)
   require("php-use-sort.config").setup(options.opts)
-  setup_command()
   setup_autocmd()
+  setup_command()
 end
 
 return PhpUseSort
