@@ -1,3 +1,7 @@
+-- PhpUseSort
+-- Sorts 'use' statements in PHP files based on configurability.
+-- Supports sorting alphabetically or by length, with ascending or descending order.
+
 ---@class PhpUseSort
 local PhpUseSort = {}
 
@@ -147,16 +151,17 @@ end
 
 local function process_declarations(root, lang, rm_unused, order_by, sort_order)
   local queries = {
-    "(namespace_use_declaration) @use",
-    "(use_declaration) @use",
+    -- "(namespace_use_declaration) @use",
+    "(use_declaration) @trait",
   }
 
-  for _, qs in ipairs(queries) do
-    local use_statements, range = extract_statements(qs, root, lang, rm_unused)
+  for _, query_string in ipairs(queries) do
+    local use_statements, range = extract_statements(query_string, root, lang, rm_unused)
 
-    sort_statements(use_statements, order_by, sort_order)
-
-    update_buffer(range, use_statements)
+    if #use_statements > 0 then
+      sort_statements(use_statements, order_by, sort_order)
+      update_buffer(range, use_statements)
+    end
   end
 end
 
