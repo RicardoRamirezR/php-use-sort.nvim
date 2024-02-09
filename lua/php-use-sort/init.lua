@@ -13,7 +13,7 @@ local t = function(node)
   p(ts.get_node_text(node, 0))
 end
 
-local function sort_use_statements(use_statements, order_by, sort_order)
+local function sort_statements(use_statements, order_by, sort_order)
   if order_by == "alphabetical" then
     table.sort(use_statements, function(a, b)
       if sort_order == "desc" then
@@ -61,8 +61,7 @@ local function parse_tree(parser)
   return parser:parse()[1]
 end
 
-local function extract_use_statements(root, lang, rm_unused)
-  local qs = [[ (namespace_use_declaration) @use ]]
+local function extract_statements(qs, root, lang, rm_unused)
   local query = ts.query.parse(lang, qs)
 
   local use_statements = {}
@@ -70,13 +69,13 @@ local function extract_use_statements(root, lang, rm_unused)
 
   for _, matches, _ in query:iter_matches(root, 0) do
     for _, node in pairs(matches) do
-      local start_row, _, end_row, _ = node:range()
+      local start_row, start_col, end_row, _ = node:range()
 
       range.min = math.min(range.min, start_row + 1)
       range.max = math.max(range.max, end_row + 1)
 
       if not rm_unused or not remove_declared_but_not_used(start_row) then
-        local statement = ts.get_node_text(node, 0)
+        local statement = string.rep(" ", start_col) .. ts.get_node_text(node, 0)
         table.insert(use_statements, { statement = statement, node = node })
       end
     end
@@ -142,13 +141,23 @@ function setup_command()
   })
 end
 
---     complete = "custom,ListUsers",
--- local function ListUsers(A, L, P)
---   return { "asc", "desc" }
--- end
-
 function PhpUseSort.get_config_options()
   return require("php-use-sort.config").options
+end
+
+local function process_declarations(root, lang, rm_unused, order_by, sort_order)
+  local queries = {
+    "(namespace_use_declaration) @use",
+    "(use_declaration) @use",
+  }
+
+  for _, qs in ipairs(queries) do
+    local use_statements, range = extract_statements(qs, root, lang, rm_unused)
+
+    sort_statements(use_statements, order_by, sort_order)
+
+    update_buffer(range, use_statements)
+  end
 end
 
 function PhpUseSort.main(order_by, sort_order)
@@ -176,14 +185,10 @@ function PhpUseSort.main(order_by, sort_order)
 
   local options = PhpUseSort.get_config_options()
 
-  local use_statements, range = extract_use_statements(root, lang, options.rm_unused)
-
   sort_order = sort_order ~= "" and sort_order or options.order
   order_by = order_by ~= "" and order_by or options.order_by
 
-  sort_use_statements(use_statements, order_by, sort_order)
-
-  update_buffer(range, use_statements)
+  process_declarations(root, lang, options.rm_unused, order_by, sort_order)
 end
 
 function PhpUseSort.setup(options)
