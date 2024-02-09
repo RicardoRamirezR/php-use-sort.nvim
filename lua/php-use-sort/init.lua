@@ -158,7 +158,7 @@ local function process_declarations(root, lang, rm_unused, order_by, sort_order)
   for _, query_string in ipairs(queries) do
     local use_statements, range = extract_statements(query_string, root, lang, rm_unused)
 
-    if #use_statements > 0 then
+    if next(use_statements) then
       sort_statements(use_statements, order_by, sort_order)
       update_buffer(range, use_statements)
     end
