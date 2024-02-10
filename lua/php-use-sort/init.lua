@@ -151,7 +151,7 @@ end
 
 local function process_declarations(root, lang, rm_unused, order_by, sort_order)
   local queries = {
-    -- "(namespace_use_declaration) @use",
+    "(namespace_use_declaration) @use",
     "(use_declaration) @trait",
   }
 
