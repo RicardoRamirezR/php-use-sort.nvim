@@ -80,7 +80,8 @@ local function extract_statements(qs, root, lang, rm_unused)
 
       if not rm_unused or not remove_declared_but_not_used(start_row) then
         local statement = string.rep(" ", start_col) .. ts.get_node_text(node, 0)
-        table.insert(use_statements, { statement = statement, node = node })
+        local raw = vim.api.nvim_buf_get_lines(0, start_row, end_row + 1, false)
+        table.insert(use_statements, { statement = statement, node = node, raw = raw[1] })
       end
     end
   end
@@ -91,7 +92,7 @@ end
 local function update_buffer(range, use_statements)
   local lines = {}
   for _, use_statement in pairs(use_statements) do
-    table.insert(lines, use_statement.statement)
+    table.insert(lines, use_statement.raw)
   end
 
   local success, err = pcall(vim.api.nvim_buf_set_lines, 0, range.min - 1, range.max, false, lines)
@@ -113,7 +114,8 @@ local function setup_autocmd()
     group = group,
   })
 end
-function setup_command()
+
+local function setup_command()
   vim.api.nvim_create_user_command("PhpUseSort", function(opts)
     local args = vim.split(opts.args, "%s+")
     local order_by = args[1] or ""
