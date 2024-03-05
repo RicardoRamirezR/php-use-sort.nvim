@@ -20,9 +20,6 @@ local defaults = {
   rm_unused = false,
 }
 
----@type Options
-Config.options = {}
-
 ---@param options? Options
 function Config.setup(options)
   Config.options = vim.tbl_deep_extend("force", {}, defaults, options or {})

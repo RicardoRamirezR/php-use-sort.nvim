@@ -1,18 +1,9 @@
+local utils = require("php-use-sort.utils")
+
 local Properties = {}
 
 local ts = vim.treesitter
-
-local function update_buffer(range, statements)
-  local lines = {}
-  for _, statement in pairs(statements) do
-    table.insert(lines, statement.raw)
-  end
-
-  local success, err = pcall(vim.api.nvim_buf_set_lines, 0, range.min - 1, range.max, false, lines)
-  if not success then
-    vim.notify("Failed to update buffer: " .. err, vim.lsp.log_levels.ERROR)
-  end
-end
+local ts_utils = require("nvim-treesitter.ts_utils")
 
 local qs = [[
   (property_declaration
@@ -27,6 +18,26 @@ local qs = [[
   ) @prop
 ]]
 
+local function get_comments(property, range)
+  local node = ts_utils.get_previous_node(property, false, false)
+  local table_lines = {}
+
+  if node == nil or node:type() ~= "comment" then
+    return table_lines
+  end
+
+  local start_row, _, end_row, _ = node:range()
+  range.min = math.min(range.min, start_row + 1)
+  range.max = math.max(range.max, end_row + 1)
+
+  local buff_lines = vim.api.nvim_buf_get_lines(0, start_row, end_row + 1, false)
+  for _, buf_line in ipairs(buff_lines) do
+    table.insert(table_lines, buf_line)
+  end
+
+  return table_lines
+end
+
 local function extract_properties_declarations(root, query)
   local lines = {}
   local range = { min = math.huge, max = 0 }
@@ -39,7 +50,13 @@ local function extract_properties_declarations(root, query)
         local start_row, _, end_row, _ = node:range()
         range.min = math.min(range.min, start_row + 1)
         range.max = math.max(range.max, end_row + 1)
-        line["raw"] = vim.api.nvim_buf_get_lines(0, start_row, end_row + 1, false)[1]
+
+        local table_lines = get_comments(node, range)
+        local buff_lines = vim.api.nvim_buf_get_lines(0, start_row, end_row + 1, false)
+        for _, buf_line in ipairs(buff_lines) do
+          table.insert(table_lines, buf_line)
+        end
+        line["raw"] = table_lines
       end
     end
     table.insert(lines, line)
@@ -81,13 +98,23 @@ function Properties.sort(root, lang, options)
   local query = ts.query.parse(lang, qs)
   local lines, range = extract_properties_declarations(root, query)
 
+  if not next(lines) then
+    return
+  end
+
+  local copied_table = utils.tablecopy(lines)
+
   table.sort(lines, compare)
+
+  if not utils.table_changed(copied_table, lines) then
+    return
+  end
 
   if options.space == "between properties" then
     local lines_with = {}
     for _, line in ipairs(lines) do
       table.insert(lines_with, { raw = line.raw })
-      table.insert(lines_with, { raw = "" })
+      table.insert(lines_with, { raw = { "" } })
     end
     lines = lines_with
   end
@@ -98,14 +125,14 @@ function Properties.sort(root, lang, options)
     for _, line in ipairs(lines) do
       if type ~= line[1] then
         type = line[1]
-        table.insert(lines_with, { raw = "" })
+        table.insert(lines_with, { raw = { "" } })
       end
       table.insert(lines_with, { raw = line.raw })
     end
     lines = lines_with
   end
 
-  update_buffer(range, lines)
+  utils.update_buffer(range, lines)
 end
 
 return Properties

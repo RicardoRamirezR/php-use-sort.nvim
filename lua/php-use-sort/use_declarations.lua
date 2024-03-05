@@ -1,7 +1,9 @@
-local UseDeclaratios = {}
+local UseDeclarations = {}
+local utils = require("php-use-sort.utils")
 
 local ts = vim.treesitter
 local vim_diagnostic = vim.diagnostic
+UseDeclarations.skipped = false
 
 local function remove_declared_but_not_used(row)
   local diag_text = "is declared but not used."
@@ -30,10 +32,17 @@ local function extract_statements(qs, root, lang, rm_unused)
       range.min = math.min(range.min, start_row + 1)
       range.max = math.max(range.max, end_row + 1)
 
-      if not rm_unused or not remove_declared_but_not_used(start_row) then
+      if rm_unused and remove_declared_but_not_used(start_row) then
+        UseDeclarations.skipped = true
+      else
         local statement = string.rep(" ", start_col) .. ts.get_node_text(node, 0)
-        local raw = vim.api.nvim_buf_get_lines(0, start_row, end_row + 1, false)
-        table.insert(use_statements, { statement = statement, node = node, raw = raw[1] })
+        local table_lines = {}
+        local buff_lines = vim.api.nvim_buf_get_lines(0, start_row, end_row + 1, false)
+
+        for _, buf_line in ipairs(buff_lines) do
+          table.insert(table_lines, buf_line)
+        end
+        table.insert(use_statements, { statement = statement, node = node, raw = table_lines })
       end
     end
   end
@@ -83,7 +92,7 @@ local function update_buffer(range, use_statements)
   end
 end
 
-function UseDeclaratios.sort(root, lang, options)
+function UseDeclarations.sort(root, lang, options)
   local queries = {}
 
   if options.includes.traits then
@@ -95,13 +104,19 @@ function UseDeclaratios.sort(root, lang, options)
   end
 
   for _, query_string in ipairs(queries) do
+    UseDeclarations.skipped = false
     local use_statements, range = extract_statements(query_string, root, lang, options.rm_unused)
 
     if next(use_statements) then
+      local copied_table = utils.tablecopy(use_statements)
+
       sort_statements(use_statements, options.order_by, options.sort_order)
-      update_buffer(range, use_statements)
+
+      if utils.table_changed(copied_table, use_statements) or UseDeclarations.skipped then
+        utils.update_buffer(range, use_statements)
+      end
     end
   end
 end
 
-return UseDeclaratios
+return UseDeclarations
