@@ -57,7 +57,7 @@ Utils.t = function(node)
   if node == nil then
     return "nil"
   end
-  p(ts.get_node_text(node, 0))
+  Utils.p(ts.get_node_text(node, 0))
 end
 
 ---@param range {min: number, max: number}

@@ -23,6 +23,10 @@ function PhpUseSort.get_config_options()
 end
 
 function PhpUseSort.main(order_by, sort_order)
+  if not vim.bo.filetype:find("php", 1, true) then
+    return
+  end
+
   local parser = parsers.get_parser()
 
   if not parser then
