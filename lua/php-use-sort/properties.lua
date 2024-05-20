@@ -48,6 +48,9 @@ local function extract_properties_declarations(class_body)
     local line = { "", "", "", "", "", "" }
     for id, node in pairs(match) do
       line[id] = ts.get_node_text(node, 0)
+      if id == 2 and line[id] == "const" then
+        line[1] = line[1] .. " const"
+      end
       if id == 4 then
         local start_row, _, end_row, _ = node:range()
         range.min = math.min(range.min, start_row + 1)
