@@ -5,19 +5,6 @@ local Properties = {}
 local ts = vim.treesitter
 local ts_utils = require("nvim-treesitter.ts_utils")
 
-local qs = [[
-  (property_declaration
-    (visibility_modifier) @vis
-    (static_modifier)? @modifier
-    (property_element) @property_element
-  ) @prop
-  (const_declaration
-    (visibility_modifier) @vis
-    "const" @modifier
-    (const_element) @property_element
-  ) @prop
-]]
-
 local function get_comments(property, range)
   local node = ts_utils.get_previous_node(property, false, false)
   local table_lines = {}
@@ -38,11 +25,26 @@ local function get_comments(property, range)
   return table_lines
 end
 
-local function extract_properties_declarations(root, query)
-  local lines = {}
+local function extract_properties_declarations(class_body)
   local range = { min = math.huge, max = 0 }
+  local lines = {}
 
-  for _, match, _ in query:iter_matches(root, 0) do
+  local property_query = [[
+    (property_declaration
+        (visibility_modifier) @vis
+        (static_modifier)? @modifier
+        (property_element) @property_element
+    ) @prop
+    (const_declaration
+        (visibility_modifier) @vis
+        "const" @modifier
+        (const_element) @property_element
+    ) @prop
+    ]]
+
+  local query = ts.query.parse("php", property_query)
+
+  for _, match, _ in query:iter_matches(class_body, 0) do
     local line = { "", "", "", "", "", "" }
     for id, node in pairs(match) do
       line[id] = ts.get_node_text(node, 0)
@@ -65,8 +67,7 @@ local function extract_properties_declarations(root, query)
   return lines, range
 end
 
--- Define a function to compare two elements
-local function compare(a, b)
+local function compare_properties(a, b)
   -- Sort by statics first
   if a[2] == "const" and b[2] ~= "const" then
     return true
@@ -90,21 +91,14 @@ local function compare(a, b)
   return a[3] < b[3]
 end
 
-function Properties.sort(root, lang, options)
+local function sort_properties(lines, range, options)
   if not options.enable then
-    return
-  end
-
-  local query = ts.query.parse(lang, qs)
-  local lines, range = extract_properties_declarations(root, query)
-
-  if not next(lines) then
     return
   end
 
   local copied_table = utils.tablecopy(lines)
 
-  table.sort(lines, compare)
+  table.sort(lines, compare_properties)
 
   if not utils.table_changed(copied_table, lines) then
     return
@@ -133,6 +127,28 @@ function Properties.sort(root, lang, options)
   end
 
   utils.update_buffer(range, lines)
+end
+
+function Properties.sort(root, lang, options)
+  local query = ts.query.parse(lang, "((class_declaration) @class)")
+  local properties_info = {}
+
+  for _, node, _, _ in query:iter_captures(root, 0) do
+    if node:type() == "class_declaration" then
+      local class_lines, class_range = extract_properties_declarations(node)
+      if next(class_lines) then
+        table.insert(properties_info, { properties = class_lines, range = class_range })
+      end
+    end
+  end
+
+  for i = #properties_info, 1, -1 do
+    local class_info = properties_info[i]
+    local class_lines = class_info.properties
+    local class_range = class_info.range
+
+    sort_properties(class_lines, class_range, options)
+  end
 end
 
 return Properties
