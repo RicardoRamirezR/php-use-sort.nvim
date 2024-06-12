@@ -1,5 +1,12 @@
 # PHP Use Sort
 
+<p align="center">
+    <a href="https://dotfyle.com/plugins/RicardoRamirezR/php-use-sort.nvim">
+        <img src="https://dotfyle.com/plugins/RicardoRamirezR/php-use-sort.nvim/shield" />
+    </a>
+</p>
+
+
 Neovim plugin to conveniently sort PHP "use" statements within your codebase. The plugin offers the flexibility to sort them alphabetically and by length, both in ascending and descending order.
 
 ## Features
