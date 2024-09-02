@@ -27,24 +27,27 @@ local function extract_statements(qs, root, lang, rm_unused)
 
   for _, matches, _ in query:iter_matches(root, 0) do
     for _, node in pairs(matches) do
-      local start_row, start_col, end_row, _ = node:range()
+      if node ~= nil then
+        local start_row, start_col, end_row, _ = node:range()
 
-      range.min = math.min(range.min, start_row + 1)
-      range.max = math.max(range.max, end_row + 1)
+        range.min = math.min(range.min, start_row + 1)
+        range.max = math.max(range.max, end_row + 1)
 
-      if rm_unused and remove_declared_but_not_used(start_row) then
-        UseDeclarations.skipped = true
-      else
-        local statement = string.rep(" ", start_col) .. ts.get_node_text(node, 0)
-        local table_lines = {}
-        local buff_lines = vim.api.nvim_buf_get_lines(0, start_row, end_row + 1, false)
+        if rm_unused and remove_declared_but_not_used(start_row) then
+          UseDeclarations.skipped = true
+        else
+          local statement = string.rep(" ", start_col) .. ts.get_node_text(node, 0)
+          local table_lines = {}
+          local buff_lines = vim.api.nvim_buf_get_lines(0, start_row, end_row + 1, false)
 
-        for _, buf_line in ipairs(buff_lines) do
-          table.insert(table_lines, buf_line)
+          for _, buf_line in ipairs(buff_lines) do
+            table.insert(table_lines, buf_line)
+          end
+          table.insert(use_statements, { statement = statement, node = node, raw = table_lines })
         end
-        table.insert(use_statements, { statement = statement, node = node, raw = table_lines })
       end
     end
+    ::continue::
   end
 
   return use_statements, range
@@ -105,6 +108,7 @@ function UseDeclarations.sort(root, lang, options)
 
   for _, query_string in ipairs(queries) do
     UseDeclarations.skipped = false
+    print(query_string, root, lang, options.rm_unused)
     local use_statements, range = extract_statements(query_string, root, lang, options.rm_unused)
 
     if next(use_statements) then
